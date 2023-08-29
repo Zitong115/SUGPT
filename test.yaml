@@ -1,0 +1,37 @@
+random_seed: 1
+H: -1
+D: 2
+T: 0.5
+sample_frac: 1
+delete_p: 0.1
+dataset: "gd"
+subgraph: -1
+dataset_folder: "C:/research/GraphSummarization/dataset-new"
+mossoinputfolder: "C:/research/GraphSummarization/dataset-mosso"
+graph_file: ""
+output_folder: "C:/research/GraphSummarization/output0807/"
+supernode_file: ""
+superedge_file: ""
+vertex_deletion: False
+genMossoInput: False
+reverse: False
+gen_zero_sn_first: False
+zero_match_escape: 0.7
+max_candidate: -1
+other_match_escape_pct: 0.02
+other_match_escape: 1
+agg_node_method: "sum"
+cal_edge_method: "EDG"
+load_zero: False
+zeros_file_prefix: ""
+genedge_selection_percentile: 75
+candidate_earlystop_thres: -1
+earlystop_thres_selection_percentile: -1
+use_ele_cnt: True
+evaluation_type:
+  - jarccard_neighbor
+  - community
+  - path_connectivity
+  - core_number
+evaluate_mosso: False
+mosso_outputfolder: "C:/research/GraphSummarization/mosso-src-0619/output"
