@@ -15,7 +15,7 @@ import evaluation
 import graph
 import utils
 import os
-import supergraph_1128 as supergraph
+import supergraph_0103 as supergraph
 
 parser = ArgumentParser(prog = "Forgettable Graph Summarization")
 parser.add_argument("--config", type = str, default = "C:/research/GraphSummarization/mycode-0619/src-1116/test.yaml")
@@ -168,16 +168,8 @@ if __name__ == "__main__":
     if(args.evaluate_type):
         config["evaluation_type"] = [args.evaluate_type]
 
-    # if(config["dataset"] == "mt"):
-    #     config["candidate_earlystop_thres"] = 10
     print("Experimenting on %s dataset, delete_p: %.3f" % (config["dataset"],config["delete_p"]))
     print("config:", config)
-
-    """
-    for dp in [0.1, 0.2, 0.3, 0.4, 0.5]:
-        #g1 = graph.Graph(config = config, dp = dp, gen_delete = False, eval_mosso = True)
-        g1 = graph.Graph(config = config, dp = dp, gen_delete = True, eval_mosso = True)
-    """
 
     # To evaluate Mosso output
     if(config["evaluate_mosso"]):
@@ -197,20 +189,16 @@ if __name__ == "__main__":
     g1 = graph.Graph(config = config, gen_delete = False)
     
     t1 = utils.time()
-    if(0):
-    #if(os.path.exists(config["output_folder"] + '-'.join([config["dataset"], "sn", "o"]) + ".csv") and
-    #    os.path.exists(config["output_folder"] + '-'.join([config["dataset"], "se", "o"]) + ".csv")):
-        sg = utils.ReadSupergraphFromFile(config, g1, retrain = "o")
-    else:
-        g1.VerticesAlignmentByCol()
-        g1.genGroups()
+    
+    g1.VerticesAlignmentByCol()
+    g1.genGroups()
         
-        sg = supergraph.Supergraph(graph = g1, config = config)
-        sg.genSupernodeForAll(original_summary = True)
+    sg = supergraph.Supergraph(graph = g1, config = config)
+    sg.genSupernodeForAll()
 
-        assert sg.graph.vertices_num == len(sg.vertex2supernode.keys())
+    assert sg.graph.vertices_num == len(sg.vertex2supernode.keys())
         
-        sg.genSuperedgeForAll()
+    sg.genSuperedgeForAll()
 
     t2 = utils.time()
     
@@ -224,19 +212,104 @@ if __name__ == "__main__":
                                      evaluation_type = config["evaluation_type"],
                                      dataset = config["dataset"])
     
-    #Evaluator.Evaluate(vertex2supernode = None)
+    Evaluator.Evaluate(vertex2supernode = None)
     print("Summarize original graph timing: %.3f, len(sg.vertex2supernode): %d" % (t2-t1, len(sg.vertex2supernode)))
+
+    print("="*10, "TEMPORAL EXPERIMENT", "="*10)
+    
+    for t in [1,2,3,4,5,6,7,8,9]:
+        
+        print("="*10, "TIMESTAMP ", t, "="*10)
+
+        print("="*10, "IN/DECREMENTAL", "="*10)
+
+        if(t > 0):
+            insert_edges = utils.ReadEdges(filename = "mo-T" + str(t) + "-ins.txt", datafolder=config["dataset_folder"])
+            removed_edges = utils.ReadEdges(filename = "mo-T" + str(t) + "-del.txt", datafolder=config["dataset_folder"])
+        else:
+            removed_edges = insert_edges
+            insert_edges = utils.ReadEdges(filename = "mo-T" + str(t) + ".txt", datafolder=config["dataset_folder"])
+        
+        print("insert %d edges, remove %d edges" % (len(insert_edges), len(removed_edges)))
+
+        sg.EdgeAddDel(insert_edges, removed_edges)
+        sg.ShowInfo()
+        
+        g1 = graph.Graph(config = config, gen_delete = False, dataset = "mo-T" + str(t))
+        Evaluator = evaluation.Evaluator(supergraph = sg, 
+                                     supernode = None, superedge = None, 
+                                     evaluated_file = None, 
+                                     evaluated_file_type = evaluation.MY_OUTPUT_FILE_TYPE, 
+                                     original_graph = g1.G, 
+                                     evaluation_type = config["evaluation_type"],
+                                     dataset = config["dataset"])
+    
+        Evaluator.Evaluate(vertex2supernode = None)
+        
+        print("="*10, "RESUMMARIZATION", "="*10)
+
+        t1 = utils.time()
+        
+        g1.VerticesAlignmentByCol()
+        g1.genGroups()
+            
+        sg_re = supergraph.Supergraph(graph = g1, config = config)
+        sg_re.genSupernodeForAll()
+
+        assert sg_re.graph.vertices_num == len(sg_re.vertex2supernode.keys())
+            
+        sg_re.genSuperedgeForAll()
+
+        t2 = utils.time()
+        
+        sg_re.ShowInfo()
+
+        Evaluator = evaluation.Evaluator(supergraph = sg_re, 
+                                        supernode = None, superedge = None, 
+                                        evaluated_file = None, 
+                                        evaluated_file_type = evaluation.MY_OUTPUT_FILE_TYPE, 
+                                        original_graph = g1.G, 
+                                        evaluation_type = config["evaluation_type"],
+                                        dataset = config["dataset"])
+        
+        Evaluator.Evaluate(vertex2supernode = None)
+        print("re-Summarize original graph timing: %.3f" % (t2-t1))
+
+        print("="*10, "TEMPORAL EXPERIMENT DONE", t,  "="*10)
+    
+    """
+    print("="*10, "Resummarization temporal EXPERIMENT", "="*10)
+
+    for t in [1,2,3,4,5,6,7,8,9]:
+        g1 = graph.Graph(config = config, gen_delete = False, dataset = "mo-T" + str(t) )
+    
+        t1 = utils.time()
+        
+        g1.VerticesAlignmentByCol()
+        g1.genGroups()
+            
+        sg = supergraph.Supergraph(graph = g1, config = config)
+        sg.genSupernodeForAll()
+
+        assert sg.graph.vertices_num == len(sg.vertex2supernode.keys())
+            
+        sg.genSuperedgeForAll()
+
+        t2 = utils.time()
+        
+        sg.ShowInfo()
+
+        Evaluator = evaluation.Evaluator(supergraph = sg, 
+                                        supernode = None, superedge = None, 
+                                        evaluated_file = None, 
+                                        evaluated_file_type = evaluation.MY_OUTPUT_FILE_TYPE, 
+                                        original_graph = g1.G, 
+                                        evaluation_type = config["evaluation_type"],
+                                        dataset = config["dataset"])
+        
+        Evaluator.Evaluate(vertex2supernode = None)
+        print("re-Summarize original graph timing: %.3f, len(sg.vertex2supernode): %d" % (t2-t1, len(sg.vertex2supernode)))
     
     # utils.SaveOriginalSupergraph(supergraph=sg, supernode_file = "", 
     #                       superedge_file = "", output_folder = config["output_folder"])
-
-    print("="*10, "DECREMENTAL EXPERIMENT", "="*10)
-    
-    for dp in [0.1]: #, 0.3, 0.4, 0.5]:
-        
-        print("="*10, "DECREMENTAL EXPERIMENT EVALUATION DELETE_P ", dp,  "="*10)
-        tmpsg = deepcopy(sg)
-        deleted_edges_idx, deleted_nodes_idx = tmpsg.GenEdgeDeleteIdx(dp)
-        ExpSingleDp(tmpsg, config, dp, deleted_edges_idx)
-        print("="*10, "FINISH DECREMENTAL EXPERIMENT EVALUATION DELETE_P ", dp,  "="*10)
-        
+    """

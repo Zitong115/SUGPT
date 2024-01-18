@@ -4,12 +4,12 @@ D: 2
 T: 0.5
 sample_frac: 1
 delete_p: 0.1
-dataset: "ch"
+dataset: "mo-T0"
 subgraph: -1
-dataset_folder: "C:/research/GraphSummarization/dataset-new"
-mossoinputfolder: "C:/research/GraphSummarization/dataset-mosso"
+dataset_folder: "/data/lizitong/202304-YQQ/dataset-new"
+mossoinputfolder: "/data/lizitong/202304-YQQ/dataset-mosso"
 graph_file: ""
-output_folder: "C:/research/GraphSummarization/output1117/"
+output_folder: "/data/lizitong/202304-YQQ/output-sugpt-0103/"
 supernode_file: ""
 superedge_file: ""
 vertex_deletion: False
@@ -32,6 +32,7 @@ evaluation_type:
   - jarccard_neighbor
   - community
   - path_connectivity
+  - core_number
 evaluate_mosso: False
 evaluate_GSS: False
 mosso_outputfolder: "C:/research/GraphSummarization/mosso-src-0619/output"

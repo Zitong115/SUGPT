@@ -96,6 +96,12 @@ class Evaluator(object):
                     
                 cnt += 1
             
+            missing_nodes = set(range(self.original_graph.number_of_nodes())) - mosso_existed_nodes
+            
+            for node in missing_nodes:
+                self.supernode[node] = set([node])
+                self.vertex2supernode[node] = node
+
             while(1):
                 edge_st, edge_ed = result_df.iloc[cnt, 0], result_df.iloc[cnt, 1]
                 if(edge_ed == -1 and edge_st == -1):
@@ -171,7 +177,7 @@ class Evaluator(object):
             if(sample > 0):
                 k = int( len(self.supernode) * sample )
             else:
-                k = 15000 # yt:10000
+                k = 10000 # yt:10000
             sampled_supernodes = random.sample(self.supernode.keys(), k)
             self.supernode = {key: self.supernode[key] for key in sampled_supernodes}
             self.superedge = list(filter(lambda x:x[0] in sampled_supernodes and x[1]  in sampled_supernodes, self.superedge))
@@ -197,6 +203,7 @@ class Evaluator(object):
         t1 = time.time()
         summary = self.BuildExtendedGraph()
         summary.remove_edges_from(nx.selfloop_edges(summary))
+        self.original_graph.remove_edges_from(nx.selfloop_edges(self.original_graph))
 
         original_core_number = nx.core_number(self.original_graph)
         summary_core_number = nx.core_number(summary)
@@ -213,7 +220,9 @@ class Evaluator(object):
 
     def BuildExtendedGraph(self):
         g = nx.Graph()
-        p = 0.6
+
+        p = 1
+        print("threshold for building extended graph in core number calculation: %.3f" % p)
 
         for sv in self.supernode:
             if(self.evaluated_file_type == MOSSO_OUTPUT_FILE_TYPE):
@@ -278,12 +287,19 @@ class Evaluator(object):
                 
                 if(self.evaluated_file_type == MOSSO_OUTPUT_FILE_TYPE):
                     tmp_community.extend(list(self.supernode[sn]))
+                    missing_nodes -= self.supernode[sn]
                 else:
                     tmp_community.extend(list(self.supernode[sn].vertices))
                     cnt += len(list(self.supernode[sn].vertices))
                     missing_nodes -= self.supernode[sn].vertices
 
             sg_extended_community.append(tmp_community)
+
+        if(self.evaluated_file_type == MOSSO_OUTPUT_FILE_TYPE):
+            
+            for node in missing_nodes:
+                sg_extended_community.append([node])
+                self.supernode[node] = set([node])
 
         return sg_extended_community
     
@@ -355,25 +371,14 @@ class Evaluator(object):
                     if(num2node_map):
                         label[num2node_map[node]] = i
                     else:
-                        label[node] = i
-            
+                        label[int(node)] = i
             return label
         
         print("%d communities in original_graph, %d in supergraph" % (len(original_graph_community), len(supergraph_community_extended)))
 
-        """
-        if(self.supergraph):
-            modularity_original = nx.community.modularity(self.supergraph.graph.G, original_graph_community)
-        else:
-            modularity_original = nx.community.modularity(self.original_graph, original_graph_community)
-        """
         modularity_original = nx.community.modularity(self.original_graph, original_graph_community)
 
         try:
-            """
-            if(self.supergraph):
-                modularity_supergraph = nx.community.modularity(self.supergraph.graph.G, supergraph_community_extended)
-            """
             modularity_supergraph = nx.community.modularity(self.original_graph, supergraph_community_extended)
         except:
             self.ChecCommunityConsistance(original_graph_community, supergraph_community_extended)
@@ -423,11 +428,11 @@ class Evaluator(object):
 
     def PathQueryInSg(self, v1, v2, newsg):
 
-        if(v1 not in self.vertex2supernode):
+        if(self.vertex2supernode and v1 not in self.vertex2supernode):
             print(v1, "not found in self.vertex2supernode (evaluation)")
             self.vertex2supernode[v1] = v1
 
-        if(v2 not in self.vertex2supernode):
+        if(self.vertex2supernode and v2 not in self.vertex2supernode):
             print(v2, "not found in self.vertex2supernode (evaluation)")
             self.vertex2supernode[v2] = v2
 

@@ -19,10 +19,10 @@ from dask import delayed
 
 class Graph(object):
     
-    def __init__(self, config, gen_delete, dp = -1, eval_mosso = False):
+    def __init__(self, config, gen_delete, dp = -1, eval_mosso = False, dataset = None):
         self.partition_size = config["H"]
         self.match_depth = config["D"]
-        self.dataset_name = config["dataset"]
+        self.dataset_name = config["dataset"] if not dataset else dataset
         
         self.reverse = config["reverse"]
         self.graphfile = config["graph_file"]
@@ -33,10 +33,10 @@ class Graph(object):
         self.load_zero = config["load_zero"]
         self.gen_delete = gen_delete
 
-        relabel = False if eval_mosso == True else True
+        relabel = False #if eval_mosso == True else True
         
         # build graph
-        self.G, self.A, self.deleted_vertices, self.deleted_edges = utils.ReadDatafile(dataset = config["dataset"],
+        self.G, self.A, self.deleted_vertices, self.deleted_edges = utils.ReadDatafile(dataset = dataset if dataset else config['dataset'],
                                                                                        subgraph = config["subgraph"],
                                                                                        dataset_folder = config["dataset_folder"],
                                                                                        delete_vertex = self.delete_vertex,
@@ -396,7 +396,10 @@ class Tree(object):
 
     def RemoveVertexFromLeaf(self, vertex, place):
         if(place != self.defaultplace):
-            self.leaf[place].remove(vertex)
+            try:
+                self.leaf[place].remove(vertex)
+            except:
+                return
             self.vertex2leaf.pop(vertex)
             self.nonzeros.remove(vertex)
             

@@ -16,7 +16,7 @@ from sys import exit
 import shutil
 from time import time
 import yaml
-from supergraph_dask import Supergraph, Supernode
+#from supergraph_0103 import Supergraph, Supernode
 
 SEED = 1
 random.seed(SEED)
@@ -26,6 +26,16 @@ dataset_info = {"gd":{"subgraph_num":3, "labeled_node":True, "subgraph2label":Tr
                 "mt":{"subgraph_num":6, "labeled_node":True, "subgraph2label":True,"featured_node":True, "directed": False},
                 "ef":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
                 "mf":{"subgraph_num":1, "labeled_node":True, "subgraph2label":False,"featured_node":True, "directed": False},
+                "mo-T0":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
+                "mo-T1":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
+                "mo-T2":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
+                "mo-T3":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
+                "mo-T4":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
+                "mo-T5":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
+                "mo-T6":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
+                "mo-T7":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
+                "mo-T8":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
+                "mo-T9":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
                 "db":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
                 "yt":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
                 "lj":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
@@ -35,7 +45,8 @@ dataset_info = {"gd":{"subgraph_num":3, "labeled_node":True, "subgraph2label":Tr
                 "se":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": True},
                 "cc":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
                 "ch":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False},
-                "pg":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": True}}
+                "pg":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": True},
+                "test":{"subgraph_num":1, "labeled_node":False, "subgraph2label":False,"featured_node":False, "directed": False}}
 
 dataset_dfcolumns = ["FromNodeId", "ToNodeId"]
 
@@ -126,7 +137,7 @@ def ReadGraphfile2Dataframe(dataset = "gd", subgraph = [1,2,3], filename = "", d
     assert subgraph == -1 or len(subgraph) <= dataset_info[dataset]["subgraph_num"]
     assert dataset in dataset_info.keys()
     
-    datafolder = os.path.join(dataset_folder, dataset)
+    datafolder = os.path.join(dataset_folder, dataset[:2])
     
     df = pd.DataFrame(columns=dataset_dfcolumns)
     
@@ -136,6 +147,8 @@ def ReadGraphfile2Dataframe(dataset = "gd", subgraph = [1,2,3], filename = "", d
     def MakeNormalGraphFilename(dataset):
         if(dataset == "mf"):
             return dataset + ".csv"
+        # elif(dataset == "mo"):
+        #    return dataset + "-TO.txt"
         else:
             return dataset + ".txt"
         
@@ -166,14 +179,17 @@ def ReadGraphfile2Dataframe(dataset = "gd", subgraph = [1,2,3], filename = "", d
         
         if(dataset == "mf"):
             df = pd.read_csv(filename, header = 0)
+        elif("mo" in dataset):
+            df = pd.read_csv(filename, delimiter='\t')
         else:
             df = pd.read_csv(filename, skiprows=3, delimiter='\t')
     
         df.columns = dataset_dfcolumns
         
     # generate demo for experiment
-    if(sample < 1 and demo and len(df) > 100000):
-        df = df.sample(frac = sample, random_state = SEED)
+    if("mo" not in dataset):
+        if(sample < 1 and demo and len(df) > 100000):
+            df = df.sample(frac = sample, random_state = SEED)
     
     # remove self loops from df
     self_loop_idx = []
@@ -182,36 +198,32 @@ def ReadGraphfile2Dataframe(dataset = "gd", subgraph = [1,2,3], filename = "", d
             self_loop_idx.append(i)
     print("%d selfloop detected." % len(self_loop_idx))
     df.drop(index = self_loop_idx).reset_index(inplace = True)
-    
-    # if(dataset_info[dataset]["directed"] == False):
-    #     df = RemoveDiEdges(df)
 
     return df
 
 def BuildGraphFromDf(df, dataset, relabel = True):
     
     nrows = len(df)
-    
+
+    print("Dataframe has %d rows." % nrows)
+
     # initialize graph
     if(dataset_info[dataset]["directed"]):
         G = nx.DiGraph()
     else:
         G = nx.Graph()
     
-    t1 = time()
-    
     # build graph from dataframe
     for i in range(nrows):
-        G.add_edge(df.iloc[i,0], df.iloc[i,1])   
+        G.add_edge(df.iloc[i,0], df.iloc[i,1])
     
-    t2 = time()
+    if("mo" in dataset):
+        G = AddVertexinMo(G)
     
     if(relabel):
         mapping = dict(zip(G, range(G.number_of_nodes())))
         G = nx.relabel_nodes(G, mapping)
-    
-    print("Build graph timing: %.3f, min and max node label:%d and %d" % (t2-t1, min(G.nodes), max(G.nodes)))
-    
+        
     return G
 
 """
@@ -266,6 +278,19 @@ def CommunityDetection(graph, prefix):
     print("%s graph community detection timing: %.3f" % (prefix, t2 - t1))
     return graph_community
 
+def AddVertexinMo(G):
+    filename = "/data/lizitong/202304-YQQ/dataset-new/mo/mo.txt"
+    df = pd.read_csv(filename, header= 0, delimiter='\t')
+    #df.columns = ["start","end","timestamp"]
+    for i,row in df.iterrows():
+        if(int(row['start']) not in G.nodes):
+            G.add_node(row['start'])
+           
+        if(int(row['end']) not in G.nodes):
+            G.add_node(row['end'])
+
+    return G
+
 """
 Read .txt format datafile to graph.
 gen_delete: whether create a graph that has already removed the target edges/nodes.
@@ -283,16 +308,23 @@ delete_p: control the edges/nodes deletion proportion.
 def ReadDatafile(dataset, subgraph, dataset_folder, filename = "", sample_frac = 1, 
                  gen_delete = False, delete_vertex = False, delete_p = -1, 
                  relabel = True, genMossoInput = False, mossoinputfolder = ""):
-        
+    
     df = ReadGraphfile2Dataframe(dataset = dataset, subgraph = subgraph, 
                                  dataset_folder = dataset_folder, 
                                  filename = "", demo = True, sample = sample_frac, 
                                  random_seed = SEED)
-    print("relabel:", relabel)
+    t1 = time()
     G = BuildGraphFromDf(df, dataset = dataset, relabel = relabel)
-    G.remove_edges_from(nx.selfloop_edges(G))
+    # G = AddVertexinMo(G)
+    deleted_nodes_idx, deleted_edges_idx = None, None
+    t2 = time()
+    print("Build graph timing: %.3f, min and max node label:%d and %d" % (t2-t1, min(G.nodes), max(G.nodes)))
+
+
+    if("mo" not in dataset):
+        G.remove_edges_from(nx.selfloop_edges(G))
     
-    deleted_edges_idx, deleted_nodes_idx = GenerateDeletedIdx(G, delete_p = delete_p, 
+        deleted_edges_idx, deleted_nodes_idx = GenerateDeletedIdx(G, delete_p = delete_p, 
                                                               delete_vertex = delete_vertex)
 
     if(gen_delete):
@@ -421,9 +453,14 @@ def ReadSupergraphFromFile(config, graph, retrain = "o"):
 
 def ReadSUGPTOutput(output_folder = "", dataset = "", delete_p = 0.1, retrain = "r"):
     
-    supernode_file = output_folder + '-'.join([dataset, str(delete_p), "sn", retrain]) + ".csv"
+    if(retrain == "o"):
+        supernode_file = output_folder + '-'.join([dataset, "sn", retrain]) + ".csv"
     
-    superedge_file = output_folder + '-'.join([dataset, str(delete_p), "se", retrain]) + ".csv"
+        superedge_file = output_folder + '-'.join([dataset, "se", retrain]) + ".csv"
+    else:
+        supernode_file = output_folder + '-'.join([dataset, str(delete_p), "sn", retrain]) + ".csv"
+    
+        superedge_file = output_folder + '-'.join([dataset, str(delete_p), "se", retrain]) + ".csv"
 
     return supernode_file, superedge_file
 
@@ -530,6 +567,219 @@ def ReadSupergraphFromFilev0(supergraph, supernode_file, superedge_file):
 
     return
 
+def ProcessDynamicDatasetv0(filename):
+
+    df = pd.read_csv(filename, header = None, delimiter=' ')
+    df.columns = ["start","end", "tmpstamp"]
+    
+    def str_map(x):
+        return ''.join(sorted(x))
+    df["dup"] = df["start"].astype('str') + '.' + df["end"].astype('str')
+    df["dup"] = df["dup"].map(str_map)
+    df = df.drop_duplicates("dup",keep = 'first', ignore_index=True)
+    
+    # frac = 10
+    # part_len = math.floor(len(df)/frac)
+    init_frac = 0.5
+    part_len = math.floor(len(df) * init_frac)
+    N = 10
+    window_frac = math.floor(part_len/N)
+
+    nrows = len(df)
+
+    # initialize graph
+    G = nx.DiGraph()
+
+    # build graph from dataframe
+    for i in range( nrows ):
+        G.add_edge(df.iloc[i,0], df.iloc[i,1])   
+
+    # relabel
+    mapping = dict(zip(G, range(G.number_of_nodes())))
+    df["start"] = df["start"].map(mapping)
+    df["end"] = df["end"].map(mapping)
+    
+    df = df.drop(columns = 'dup', axis = 1)
+    df.to_csv("/data/lizitong/202304-YQQ/dataset-new/mo/mo.txt", header=True, sep = "\t", index = False)
+
+    for i in range(N+1):
+
+        if( i == 0 ):
+            #T0
+            output_file = "/data/lizitong/202304-YQQ/dataset-new/mo/mo-T" + str(i) + ".txt"
+            tmpdf = df.iloc[ : part_len, [0,1]]
+            tmpdf.to_csv(output_file, header=True, sep = "\t", index = False)
+            print("written %d rows to %s " % (len(tmpdf), output_file))
+        else:
+            tmpdf_insert = df.iloc[part_len + window_frac*(i-1) : part_len + window_frac*(i), [0,1]]
+            output_file_insert = "/data/lizitong/202304-YQQ/dataset-new/mo/mo-T" + str(i) + "-ins.txt"
+            tmpdf_insert.to_csv(output_file_insert, header=True, sep = "\t", index = False)
+            
+            tmpdf_remove = df.iloc[window_frac*(i-1) : window_frac*(i), [0,1]]
+            output_file_remove = "/data/lizitong/202304-YQQ/dataset-new/mo/mo-T" + str(i) + "-del.txt"
+            tmpdf_remove.to_csv(output_file_remove, header=True, sep = "\t", index = False)
+            
+            tmpdf_truth = df.iloc[window_frac*(i) : part_len + window_frac*(i), [0,1]]
+            output_file_truth = "/data/lizitong/202304-YQQ/dataset-new/mo/mo-T" + str(i) + ".txt"
+            tmpdf_truth.to_csv(output_file_truth, header=True, sep = "\t", index = False)
+            
+            print("written %d, %d, %d rows to %s, %s, %s " % (len(tmpdf_insert), 
+                                                      len(tmpdf_remove),
+                                                      len(tmpdf_truth),
+                                                      output_file_insert,
+                                                      output_file_remove,
+                                                      output_file_truth))
+    return
+
+def ProcessDynamicDataset(filename):
+
+    df = pd.read_csv(filename, header = None, delimiter=' ')
+    df.columns = ["start","end", "timestamp"]
+    
+    def str_map(x):
+        return ''.join(sorted(x))
+    df["dup"] = df["start"].astype('str') + '.' + df["end"].astype('str')
+    df["dup"] = df["dup"].map(str_map)
+    df = df.drop_duplicates("dup",keep = 'first', ignore_index=True)
+    
+    # frac = 10
+    # part_len = math.floor(len(df)/frac)
+    time_median = int(df["timestamp"].median())
+    time_min = int(df["timestamp"].min())
+    N = 10
+    window_frac = math.floor((time_median-time_min)/N)
+    print("time_median: %d, time_min: %d" % (time_median, time_min))
+    nrows = len(df)
+
+    # initialize graph
+    G = nx.DiGraph()
+
+    # build graph from dataframe
+    for i in range( nrows ):
+        G.add_edge(df.iloc[i,0], df.iloc[i,1])   
+
+    # relabel
+    mapping = dict(zip(G, range(G.number_of_nodes())))
+    df["start"] = df["start"].map(mapping)
+    df["end"] = df["end"].map(mapping)
+    
+    df = df.drop(columns = 'dup', axis = 1)
+    df.to_csv("/data/lizitong/202304-YQQ/dataset-new/mo/mo.txt", header=True, sep = "\t", index = False)
+
+    for i in range(N+1):
+
+        if( i == 0 ):
+            #T0
+            output_file = "/data/lizitong/202304-YQQ/dataset-new/mo/mo-T" + str(i) + ".txt"
+            tmpdf = df[df["timestamp"].between(time_min, time_median)].iloc[ :, [0,1]]
+            tmpdf.to_csv(output_file, header=True, sep = "\t", index = False)
+            print("written %d rows to %s " % (len(tmpdf), output_file))
+        else:
+            tmpdf_insert = df[df["timestamp"].between(time_median + window_frac*(i-1), time_median + window_frac*(i))].iloc[ :, [0,1]]
+            output_file_insert = "/data/lizitong/202304-YQQ/dataset-new/mo/mo-T" + str(i) + "-ins.txt"
+            tmpdf_insert.to_csv(output_file_insert, header=True, sep = "\t", index = False)
+            
+            tmpdf_remove = df[df["timestamp"].between(time_min + window_frac*(i-1), time_min + window_frac*(i))].iloc[ :, [0,1]]
+            # df.iloc[window_frac*(i-1) : window_frac*(i), [0,1]]
+            output_file_remove = "/data/lizitong/202304-YQQ/dataset-new/mo/mo-T" + str(i) + "-del.txt"
+            tmpdf_remove.to_csv(output_file_remove, header=True, sep = "\t", index = False)
+            
+            tmpdf_truth = df[df["timestamp"].between(time_min + window_frac*(i), time_median + window_frac*(i))].iloc[ :, [0,1]]
+            # df.iloc[window_frac*(i) : part_len + window_frac*(i), [0,1]]
+            output_file_truth = "/data/lizitong/202304-YQQ/dataset-new/mo/mo-T" + str(i) + ".txt"
+            tmpdf_truth.to_csv(output_file_truth, header=True, sep = "\t", index = False)
+            
+            print("written %d, %d, %d rows to %s, %s, %s " % (len(tmpdf_insert), 
+                                                      len(tmpdf_remove),
+                                                      len(tmpdf_truth),
+                                                      output_file_insert,
+                                                      output_file_remove,
+                                                      output_file_truth))
+    return
+
+def ProcessDynamicDatasetMoSSo(filename, output_folder):
+
+    df = pd.read_csv(filename, header = None, delimiter=' ')
+    df.columns = ["start","end", "timestamp"]
+    
+    def str_map(x):
+        return ''.join(sorted(x))
+    df["dup"] = df["start"].astype('str') + '.' + df["end"].astype('str')
+    df["dup"] = df["dup"].map(str_map)
+    df = df.drop_duplicates("dup",keep = 'first', ignore_index=True)
+    
+    df["selfloop"] = df["start"] - df["end"]
+    df.drop(df[df['selfloop'] == 0].index, inplace=True)
+    
+    # frac = 10
+    # part_len = math.floor(len(df)/frac)
+    time_median = int(df["timestamp"].median())
+    time_min = int(df["timestamp"].min())
+    N = 10
+    window_frac = math.floor((time_median-time_min)/N)
+    print("time_median: %d, time_min: %d" % (time_median, time_min))
+    nrows = len(df)
+
+    # initialize graph
+    G = nx.DiGraph()
+
+    # build graph from dataframe
+    for i in range( nrows ):
+        G.add_edge(df.iloc[i,0], df.iloc[i,1])
+
+    # relabel
+    mapping = dict(zip(G, range(G.number_of_nodes())))
+    df["start"] = df["start"].map(mapping)
+    df["end"] = df["end"].map(mapping)
+    
+    df = df.drop(columns = 'dup', axis = 1)
+    df = df.drop(columns = 'selfloop', axis = 1)
+    # df.to_csv("/data/lizitong/202304-YQQ/dataset-new/mo/mo.txt", header=False, sep = "\t", index = False)
+
+    df_dynamic = df[df["timestamp"].between(time_min, time_median)].iloc[ :, [0,1]]
+    df_dynamic[2] = 1
+    print("T0 dataset length: %d" % len(df_dynamic))
+
+    for i in range(1,N+1):
+
+        tmpdf_insert = df[df["timestamp"].between(time_median + window_frac*(i-1), time_median + window_frac*(i))].iloc[ :, [0,1]]
+        tmpdf_insert[2] = 1
+
+        tmpdf_remove = df[df["timestamp"].between(time_min + window_frac*(i-1), time_min + window_frac*(i))].iloc[ :, [0,1]]
+        tmpdf_remove[2] = -1
+
+        df_dynamic = df_dynamic.append(tmpdf_insert)
+        df_dynamic = df_dynamic.append(tmpdf_remove)
+
+        print(print("T%d dataset length: %d, insert %d edges, delete %d edges" % (i,len(df_dynamic),
+                                                                                  len(tmpdf_insert), len(tmpdf_remove))))
+            
+        tmpdf_truth = df[df["timestamp"].between(time_min + window_frac*(i), time_median + window_frac*(i))].iloc[ :, [0,1]]
+        tmpdf_truth[2] = 1
+        output_file_truth = os.path.join( output_folder, "mo-T" + str(i) + ".txt")
+        tmpdf_truth.to_csv(output_file_truth, header=False, sep = "\t", index = False)
+            
+        print("written %d rows to %s " % (len(tmpdf_truth),output_file_truth))
+    
+    dynamic_file = os.path.join( output_folder, "mo_dynamic.txt")
+    df_dynamic.to_csv(dynamic_file, header=False, sep = "\t", index = False)
+    print("written %d rows to %s " % (len(df_dynamic), dynamic_file))
+
+    return
+
+def ReadEdges(filename, datafolder):
+
+    filename = os.path.join( datafolder, "mo", filename)
+
+    edges = []
+    df = pd.read_csv(filename, delimiter='\t')
+
+    for i,row in df.iterrows():
+        edges.append([int(row['start']),int(row['end'])])
+        
+    return edges
+
 if __name__ == "__main__":
-    a = random.sample(range(100),5)
-    print(a)
+    # ProcessDynamicDataset(filename = "/data/lizitong/202304-YQQ/dataset-new/mo/mo_notrelabeled.txt")
+    ProcessDynamicDatasetMoSSo(filename = "/data/lizitong/202304-YQQ/dataset-new/mo/mo_notrelabeled.txt", 
+                              output_folder = "/data/lizitong/202304-YQQ/kdd20-mosso/mosso/dataset_mo")
